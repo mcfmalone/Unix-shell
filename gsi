@@ -1,0 +1,1834 @@
+#!/bin/bash
+
+N="Get STB Info"
+V="$Revision 5.0 $"
+
+function Version
+{
+	echo -e "$Id: gsi,v 5.0 2018/11/26 22:28:09 P2749056 Exp P2749056 $"|sed 's/^[: ]*//'
+} 
+
+function ChangeLog
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mChange Log\e[0m\n\nUsage: cl" && continue
+cat << ENDLOG | fmt -w $(tput cols)
+Log
+$Log: gsi,v $
+Revision 5.0  2018/11/26 22:28:09  P2749056
+Created a new function called "gwbi" which gathers and prints info if the Boxtype is WorldBox. It sends the commands to the World Box in one ssh call using a here-document. Then parses the output with awk.
+
+Revision 4.9  2018/11/23 17:56:08  P2749056
+Added pseudo-term command "e" to show entitlements.
+Added command-line option "-e" to show entitlements.
+Modified pseudo-term command "se" to accept a filename containing service level IDs (NCS IDs), because there is a limit on the length of a line that can be pasted.
+Updated password for root on Leeds DNCS.
+Changed Leeds dncs user from twcadmin to sstadmin. Updated password accordingly.
+Removed DNCS root passwords.
+Removed DNCS twcadmin passwords.
+
+Revision 4.8  2018/10/16 01:45:51  P2749056
+Added handling for grep and date errors in function gsi().
+Added missing DNCSs to dncs() function.
+Added capability to log in as "dncs" by going through root.
+Modified the "dncs" function by putting the data arrays in their own functions so they can be globally accessible.
+Addeed pseudo-term command "ih" to send an instant hit to a box.
+Addeed pseudo-term command "sh" to send a staging hit to a box.
+Updated "psnf" to show processes and threads.
+Updated "ih" and "sh" to check to see if MAC is in the DNCS's database. If it is not, a warning message is displayed. Otherwise, the hit proceeds.
+Also added output to "ih" and "sh" which shows the CHANGE in EMMs processed, and EMMs valid.
+Added "Netflix" to output of gsi() fuction. This will display the netflix processm if it is running.
+Added pseudo-term command "rh" to send refresh hit. Similar to "ih" and "sh".
+
+Revision 4.7  2018/10/02 23:49:48  P2749056
+If user sepcified interactive mode (-t or -T) on the command line, and the box is unreachable, it will continue to interactive mode (ps
+eudo-term) anyway, because some pseudo-term commands (such as the curls) do not access the box.
+Created global variables MAC,IP, and ACCTNUM.
+Modified pseudo-term "li" command to use global variable MAC by default. Use can specifiy a different macAddress if desired.
+Added psuedo0-term command "hbo" to add HBO service level IDs to box via curl.
+Changed BoxType from Humax to WorldBox and from Moto to Legacy.
+Updated "memm" to work with Arris.
+Added pseudo-term command "zodiac" to log into WB as user zodiac.
+
+Revision 4.6  2018/09/30 02:08:48  P2749056
+Added pseudo-term command "memm" to monitor EMMs in real time. Valid only on Humax.
+Added pseudo-term command "se" to set entitlements on a box.
+
+Revision 4.5  2018/09/27 21:23:17  P2749056
+Added "--connect-timeout 5" to the curl commands.
+Added "Account #" to gsi output.
+Added "ChannelLineupID" to gsi output.
+
+Revision 4.4  2018/09/19 17:40:36  P2749056
+Changed pseudo-term "cac" to "ce" for Clear Entitlements.
+Added "cbc" to pseudo-term for Clear Billing Codes (via curl).
+Added "li" to pseudo-term commands for "Login Info" (via curl).
+
+Revision 4.3  2018/09/18 21:14:08  P2749056
+Added pseudo-term command "er" to perform entitlement recalculation via curl.
+
+Revision 4.2  2018/09/18 19:20:44  P2749056
+Added pseudo-term command "dncs" to log into DNCS.
+
+Revision 4.1  2018/09/17 18:57:27  P2749056
+Changed name from Moto Box info to Get STB Info.
+
+Revision 4.0  2018/09/17 18:42:32  P2749056
+Began using RCS to track changes.
+Added pseudo-term command "cac" (Clear Account Cache). Typically used to resolve LRM/Insight mismatches via excection of a curl command.
+Added pseudo-term "cl" command to print change log.
+Added -v command-line option to print version.
+
+Revision 3.9  2018/09/15  Dave Lyons
+Added "help" options to all pseudo-term custom commands.
+Added more available commands to WBHelp.
+Used the unix "fmt" command to adjust line length based on terminal width.
+
+Revision 3.8  2018/09/04  Dave Lyons
+Modified "c" so you can specify a first and last channel and see the entire range.
+Added "motocas reset" to "Nuclear option".
+2018/09/14 Updates to "help".
+
+Revision 3.7  2018/08/31  Dave Lyons
+Added local host and IP to "info" output. Suggested by Wyeth Willard.
+"-t" option will not include "info"; goes directly to pseudo-term.
+Added "-T" option which includes "info" output prior to pseudo-term.
+Added SH_HD_LINK to channel list output "c".
+Fixed Netflix entry in channel list output "c".
+Adjusted "help/usage" output.
+Changed tab spacing to 4 for channel list output "c".
+Modified "c" so you can specify a channel, and get data only for that channel.
+Changed "Gathering info" message to "Getting STB Info".
+Added "psnf" (ps netflix) to pseudo-term.
+Added "ipgd cache-cleanup" to "Nuclear option".
+
+Revision 3.6  2018/08/07  Dave Lyons
+Added pseudo-term "on" and "off" commands to power box on or off. Suggested by Antonio Diaz.
+Added pseudo-term "cc" command to toggle closed captioning.
+Added pseudo-term "at" command to toggle HD auto tune.
+Cleaned up "help/usage" output.
+
+Revision 3.5  2018/08/05  Dave Lyons
+Added pseudo-term "pus" command for "PowerUp Status". This is similar to diag pg 23 on World Boxes.
+Changed pseudo-term "history" command to "hist" because some boxes have an internal "history" command.
+Fixed output of "lsrec" to show length as HH:MM:SS instead of MM:SS.
+Fixed output of "lsrec" to show only the number in "record[#]:".
+
+Revision 3.4  2018/08/03  Dave Lyons
+Added command line "-n" flag, for "nuclear option".
+Added pseudo-term "n" command for "nuclear option".
+Modified PATH to include ~dlyons/home, where is stored a copy of sshpass. Because some AMSs do not have sshpass installed.
+
+Revision 3.3  2018/07/20  Dave Lyons
+Added error message if unable to connect to box.
+First person to run script creates log file (/tmp/gsi.log). Made sure it is writeable by subsequent users.
+
+Revision 3.2  2018/07/06  Dave Lyons
+Added terminal commands 0 through 23. This will print the apropriate diag page, except 0. If 0 is entered, then it will list the diag pages that are available.
+Added terminal command "ib" to print ibtrans hist.
+Added terminal command "ob" to print oobtrans hist.
+Note: "ib" and "ob" do not work on World Box.
+Added "source" to channel list output. "source" can be QAM, SDV, PPV or AVN.
+
+Revision 3.1  2018/07/05  Dave Lyons
+Removed grep'ing for box_model file. Instead, the data is now contained in a variable called "BM" within this script.
+Removed custom pseudo-term commands "fu" and "pub".
+Added box model 2053 -> DCX3425R.
+Added box model 1319 -> DC550DDSG.
+Added box model 2054 -> DCX3200R.
+
+Revision 3.0  2018/06/24  Dave Lyons
+Added Humax World Box functionality. 
+Added "root" custom command to access World Box as root.
+Skipped revision to 3.0, since there were significant updates.
+
+Revision 2.6  2018/06/20  Dave Lyons
+Fixed an issue where if you put a space between a command and a pipe/redirected in terminal mode, it wouldn't recognize the command. Removed any leading or training whitespaces so commands would be recognized.
+
+Revision 2.5  2018/06/12  Dave Lyons
+Added the abilility to use pipes and redirects with pseudo-term commands.
+Pseudo-term commands can be sent via "-c command" on command-line, making them non-interactive.
+Added "lsrec", which performs "haldvr ls" and converts hexidecimal output to readable values.
+
+Revision 2.4  2018/06/10  Dave Lyomns
+Added "c" command to psuedo-term to print channels.
+
+Revision 2.3  2018/06/09  Dave Lyons
+Added "Systime" to info output. Displays current time on box.
+Changed "-r" flag to "-f".
+Added "-r" to conditional (if box is off) reboot.
+
+Revision 2.2  2018/06/07  Dave Lyons
+Changed last_broadcast_dcn to last_channel_dcn
+
+Revision 2.1  2018/06/06  Dave Lyons
+Added "-I" flag to display settop info if other options are selected.
+If other options are selected and "-I" is not, then no STB info is displayed.
+All options specified on command line will be processed.
+Added "-P" for pwsetmgr reset.
+
+Revision 2.0  2018/05/28
+Added a separate function "gsi" for get stb info.
+Added "info" command to pseudo-term.
+
+Revision 1.9  2018/05/22  Dave Lyons
+Added "-a" option for "all". This will clear DTS, DVR caches, etc.
+
+Revision 1.8  2018/05/21  Dave Lyons
+Fixed error getting Service group. Changed the search.
+from /Service group/ to /Service group:/.
+Added current/last channel.
+
+Revision 1.7  2018/05/20  Dave Lyons
+Added "bs" (boot status) command to pseudo-term.
+
+Revision 1.6  2018/05/19  Dave Lyons
+No info will be displayed after "-d" or "-D" flags.
+Added "-R" to reboot box.
+Removed extraneous data from "-h" output.
+Added "-u" to update DTS and services.
+Added "-p" to run "pwdvr" commands.
+
+Revision 1.5  2018/05/18  Dave Lyons
+Added channel lineup info.
+Distinguished SDV service group as "SDV SGID".
+Added non-SDV SGID, which is the same as NodeID.
+Removed "TSID" from NodeID because a "TSID" setting appears nowhere in the box.
+
+Revision 1.4  2018/05/17  Dave Lyons
+Added usage logging.
+
+Revision 1.3  2018/05/16  Dave Lyons
+Added separate function for sending command to box: sendcommand().
+
+Revision 1.2  2018/05/07  Dave Lyons
+Updated boot status to work with SWVersion 03.44.
+Added sed filters to format "help" in terminal mode.
+Added LimitedMode.
+Commands sent to box via "-c" are echoed.
+Added HISTORYTIMEFORMAT.
+Removed "set -o emacs".
+Added random goodbye.
+
+Revision 1.1  2018/05/04  Dave Lyons
+MAC will be displayed in lower case.
+Handle VctID and VCT_ID.
+Change Tom's way of handling sdv_sg and sdv_sg2.
+
+Revision 1.0
+Initial.
+ENDLOG
+}
+
+# Define global variables
+declare MAC
+declare IP
+declare ACCTNUM
+
+unset ALL
+unset BOOTSTAT
+unset IBT
+unset OBT
+unset NL
+unset DVRCACHE
+unset DTSCACHE
+unset DTSNVM
+unset REGFLAG
+unset MOTOTERM
+unset NUKE
+unset NUKEF
+unset REBOOT
+unset UPDATE
+unset PWDVR
+unset INFO
+unset NOINFO
+unset CREBOOT
+unset PWSETMGR
+
+function pounds()
+{
+# prints a line of "pounds" (tic-tac-toe symbols) across the width of the terminal.
+        [[ ${1} == "-n" ]] && echo
+        for (( i=1; i<$(tput cols); i+=1 ))
+        do
+                echo -n "#"
+        done
+        echo
+}
+
+function rbye()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mTerminate\e[0m\n\nUsage: bye|end|exit|q\n\nTerminate the session." && continue
+	declare -a m
+
+	m[0]="Goodbye!"
+	m[1]="Bye!"
+	m[2]="Adiós!"
+	m[3]="Hasta la Vista, baby!"
+	m[4]="Arrivederci!"
+	m[5]="Ciao!"
+	m[6]="Auf Wiedersehen!"
+	m[7]="Au Revoir!"
+	m[8]="Sayonara!"
+	m[9]="Shalom!"
+	m[10]="Farewell!"
+	m[11]="Adeus!"
+	m[12]="Adieu!"
+	m[13]="Do svidaniya!"
+
+	echo ${m[${RANDOM}%${#m[@]}]}
+
+	unset m
+}
+
+function pwchl()
+{
+	sendcommand 'pwchl enum' ${IP} 2>/dev/null|grep -vie ^OK -ve channels -ve ^goodbye
+}
+
+function pwsrv()
+{
+	sendcommand "pwsrv info ${1}" ${IP} 2>/dev/null|grep -vie ^OK -ve ^goodbye
+}
+
+function chans()
+{
+# Lists all channels in the box via pwsrv.
+	tabs 4
+	[[ ${1} == "help" ]] && echo -e "\e[4mChannels\e[0m\n\nUsage: c [chan] [chan]\n\nShow channels in the following manner...\n\n\e[4mChan\tServiceID\tSD_HD_Link\tSource\t SourceID\tDescription\tAuthorized\e[0m\n\nIf one channel argument is provided, then only that channel will be displayed.\nIf two channel arguments are provided, then all channels beginning with the first, and ending with second will be displayed." && continue
+	echo -e " \e[4mChan\tServiceID\tSD_HD_Link\tSource\t SourceID\tDescription\tAuthorized\e[0m"
+	pwchl|while IFS= read -r line
+	do
+		channel=$(echo ${line}|sed 's/\[dcn:\([0-9]*\)\] \[service id:[0-9]*\]/\1/')
+		service=$(echo ${line}|sed 's/\[dcn:[0-9]*\] \[service id:\([0-9]*\)\]/\1/')
+		srvdata=$(pwsrv ${service})
+		echo -e "Channel ${channel}\n${srvdata}"|awk \
+		'
+			$1=="Channel"		{channel=$NF}
+			/service id:/		{serviceid=$NF}
+			$1=="url:"		{gsub(":"," ");gsub("="," ");P=NF-2;source=$P;sourceid=$NF;if(source=="url") {source="avn"}}
+			/watchPpv/		{source="ppv"}
+			/netflix/		{source="avn"}
+			/SD_HD_LINK/		{sdhdlink=$NF}
+			/auth data:/		{split($0,auth,"[()]");if(auth[2]=="NOT AUTHORIZED") {auth[2]="False"} else {auth[2]="True"}}
+			$1=="descr:"		{split($0,desc,"\"")
+						printf("%5d\t%9d\t%10d\t%-6s\t%9d\t%-8s\t%-5s\n",channel,serviceid,sdhdlink,toupper(source),sourceid,desc[2],auth[2])}
+		'
+	done
+	tabs 8
+}
+
+function pus
+{
+# Power Up Status.
+	[[ ${1} == "help" ]] && echo -e "\e[4mPower Up Status\e[0m\n\nUsage: pus" && continue
+	sendcommand "lcm diag" ${IP}|grep -iv "^ok"
+}
+
+function cc
+{
+# Toggle closed captioning.
+	[[ ${1} == "help" ]] && echo -e "\e[4mClosed Captioning\e[0m\n\nUsage: cc\n\nToggle closed_caption." && continue
+	CCSTAT=$(sendcommand "pwreg get closed_caption" ${IP}|awk '/closed_caption/ {print $NF}')
+	[[ ${CCSTAT} -eq 0 ]] && TCCSTAT=1 || TCCSTAT=0
+	sendcommand "pwreg set closed_caption ${TCCSTAT}" ${IP}|grep -vi ok
+}
+
+function at
+{
+# Toggle HD auto tune.
+	[[ ${1} == "help" ]] && echo -e "\e[4mHD Auto Tune\e[0m\n\nUsage: at\n\nToggle hd_auto_tune." && continue
+	HDAT=$(sendcommand "pwreg get hd_auto_tune" ${IP}|awk '/hd_auto_tune/ {print $NF}')
+	[[ ${HDAT} -eq 0 ]] && THDAT=1 || THDAT=0
+	sendcommand "pwreg set hd_auto_tune ${THDAT}" ${IP}|grep -vi ok
+}
+
+function lsrec()
+{
+# lists recodings on a DVR via haldvr, and formats the output so it's readable.
+	[[ ${1} == "help" ]] && echo -e "\e[4mList Recordings\e[0m\n\nUsage: lsrec\n\nExecutes \e[1mhaldvr ls\e[0m and produces readable output formated as the following:\n\nRecord\t        ID\tName\t\tDate\t   Time\t\t  Mbytes\tLength" && continue
+	sendcommand 'haldvr ls' ${IP}|awk \
+	'
+		/StorageHandle/ {print $0}
+		/av files/      {print("Record\t        ID\tName\t\tDate\t   Time\t\t  Mbytes\tLength")}
+		/record/        {gsub(/[record\[\]\:]/,"",$1);record=$1;id=$3}
+		/name/          {name=$3}
+		/time_cr/       {time_cr=$3}
+		/size_bytes/    {mbytes=$3}
+		/size_seconds/  {dur=$3}
+		/bit_rate/      {bitrate=$3}
+		/attributes/    {printf("%6s\t%10s\t%-10s\t%s\t%8.2f\t%8s\n",record,id,name,strftime("%F %T",strtonum(time_cr)),strtonum(mbytes)/1024/1024,strftime("%H:%M:%S",strtonum(dur),1))}
+	'
+}
+
+function on
+{
+# Turn box on via pwreg.
+	[[ ${1} == "help" ]] && echo -e "\e[4mOn\e[0m\n\nUsage: on\n\nPower on STB by setting power_state to 1." && continue
+	sendcommand 'pwreg set power_state 1' ${IP}
+}
+
+function off
+{
+# Turn box off via pwreg.
+	[[ ${1} == "help" ]] && echo -e "\e[4mOff\e[0m\n\nUsage: off\n\nPower off STB by setting power_state to 0." && continue
+	sendcommand 'pwreg set power_state 0' ${IP}
+}
+
+function sendcommand()
+{
+
+# World Box username and password
+	SSHPASS=V6AZPyTE8KbhZ
+	SSHUSER=zodiac
+#	[[ ${Boxtype}=="Legacy" ]] && echo "${1}"|nc -4u -w1 ${2} 65432 2>/dev/null
+#	[[ ${Boxtype}=="WorldBox" ]] && sshpass -p${SSHPASS} ssh ${SSHUSER}@${2} ${1}
+	case ${Boxtype} in
+		Legacy)		echo ${1}|nc -4u -w1 ${2} 65432 2>/dev/null
+				continue ;;
+		WorldBox)	sshpass -p${SSHPASS} ssh -n ${SSHUSER}@${2} ${1} 2>/dev/null|grep -v "^goodbye!"
+				continue ;;
+		* )	continue ;;
+	esac
+}
+
+function WBHelp()
+{
+
+	w=${COLUMNS}
+	echo -e "apps, bootdiag, CloudRW, cas, cds, cldvr_cache, console, dalagent, dc, de_client, diag, dmesg, dob2pe, dob2rs, dsgccproxy, dts, dtscache, dtsnvm, dvrdb, dvreng, env, ffsReset, find, getfreemem, getMiniDump, getMiniDumpList, gunzIp, gzip, haldvr, halstor, HistoryCmd, httptrans, ifconfig, ipgd, irblock, kill, lcm, log, media, net, omm, pdcache, ping, power, profile, ps, pwdvr, pwpc, pwchl, pwppv, pwreg, pwsetmgr, pwsrv, RebootNOW, RemoteKey, rudp_stat, sdv, sgd, sha1, sha1sum, sic, SilentDiag, snmp, systime, tcpdump, tcpPrintf, time, timers, top, tsbman, unzip, UploadMiniDumps, version, vms, zs."|fmt -w ${w}
+}
+
+function Root()
+{
+# Log in to a World Box as root. The OS in a World Box is a limited verison of Linux.
+# Most of the usual Linux commands are provided by Busybox, not GNU. So some of their
+# options might be different.
+#
+# The default prompt is: \$
+#
+	SSHPASS=wb@humax
+	SSHUSER=root
+	[[ ${1} == "help" ]] && echo -e "\e[4mRoot\e[0m\n\nUsage: root\n\nLog in to World Box as root, using password ${SSHPASS}. This does not work on Arris World Boxes or legacy boxes." && continue
+	[[ ${Boxtype} == WorldBox ]] && sshpass -p${SSHPASS} ssh ${SSHUSER}@${IP}
+}
+
+function Zodiac()
+{
+# Log in to a World Box as zodiac.
+
+	SSHPASS=V6AZPyTE8KbhZ
+	SSHUSER=zodiac
+	[[ ${1} == "help" ]] && echo -e "\e[4mZodiac\e[0m\n\nUsage: zodiac\n\nLog in to World Box as zodiac, using password ${SSHPASS}. This does not work on Arris World Boxes or legacy boxes." && continue
+	[[ ${Boxtype} == WorldBox ]] && sshpass -p${SSHPASS} ssh ${SSHUSER}@${IP}
+}
+
+function diag()
+{
+	PAGE=${1}
+	if [[ ${Boxtype} == WorldBox ]]
+	then
+		if [[ ${PAGE} -eq 0 ]]
+		then
+			sendcommand "Silentdiag all" ${IP}  2>/dev/null|grep -i "begin page"|sed 's/begin page \([0-9]*\) of 23/\1/'|tr -d \'\(\) # adding the closing '
+			continue
+		else
+			DIAGCMD="Silentdiag ${PAGE}"
+		fi
+	fi
+	if [[ ${Boxtype} == Legacy ]]
+	then
+		if [[ ${PAGE} -eq 0 ]]
+		then
+			DIAGCMD="diag list"
+		else
+			DIAGCMD="diag dump ${PAGE}"
+		fi
+	fi
+	sendcommand "${DIAGCMD}" ${IP}
+}
+
+function psnf
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mProcess Status Netflix\e[0m\n\nUsage: psnf\n\nShow Netflix processes and threads. Typically there are two "Netflix" threads in the supervisor process. And there are a number of threads in the netflix process. The supervisor process should always be running. If the netflix process is not running, then you will need to reboot the STB to start it." && continue
+	[[ ${Boxtype} == Legacy ]] && echo "This option is not available on ${Boxtype}" && continue
+	SUPERVISORPID=$(sendcommand "ps -e" ${IP}|awk '/SupervisorThrea/ {print $1}')
+	echo -e "\e[4mPROCESS\e[0m\n"
+	sendcommand "ps -fp ${SUPERVISORPID}" ${IP}|grep -iv ok|grep -v "Unknown HZ" && echo -e "\n\e[4mTHREADS\e[0m\n"
+	sendcommand "ps -Tp ${SUPERVISORPID}" ${IP}|grep -iv ok|grep -e PID -e Netflix
+	NETFLIXPID=$(sendcommand "ps -e" ${IP}|awk '/GIBBON_MAIN/ {print $1}')
+	if [[ ${NETFLIXPID} ]] 
+	then
+		echo -e "\n\e[4mPROCESS\e[0m\n"
+		sendcommand "ps -fp ${NETFLIXPID}" ${IP}|grep -iv ok|grep -v "Unknown HZ" && echo -e "\n\e[4mTHREADS\e[0m\n"
+		sendcommand "ps -Tp ${NETFLIXPID}" ${IP}|grep -iv ok|grep -v "Unknown HZ"
+	else
+		echo -e "\nError: 404: netflix process: Not found.\t\e[4mReboot the STB to start it.\e[0m\n"
+	fi
+	
+}
+
+function dcn()
+{
+# Prints infomation about a single channel, or for each channel in a range specified
+# by a first and last channel.
+	tabs 4
+	FIRST=${1}
+	[[ ${2} ]] && LAST=${2} || LAST=${1}
+        echo -e " \e[4mChan\tServiceID\tSD_HD_Link\tSource\t SourceID\tDescription\tAuthorized\e[0m"
+	for CHANNEL in `seq ${FIRST} ${LAST}`
+	do
+		service=$(pwchl|grep dcn:${CHANNEL}]|grep -o id:[0-9][0-9]*|tr -d [id:])
+		srvdata=$(pwsrv ${service})
+		echo -e "Channel ${CHANNEL}\n${srvdata}"|awk \
+		'
+			$1=="Channel"		{channel=$NF}
+			/service id:/		{serviceid=$NF}
+			$1=="url:"		{gsub(":"," ");gsub("="," ");P=NF-2;source=$P;sourceid=$NF;if(source=="url") {source="avn"}}
+			/watchPpv/		{source="ppv"}
+			/netflix/		{source="avn"}
+			/SD_HD_LINK/		{sdhdlink=$NF}
+			/auth data:/		{split($0,auth,"[()]");if(auth[2]=="NOT AUTHORIZED") {auth[2]="False"} else {auth[2]="True"}}
+			$1=="descr:"		{split($0,desc,"\"")
+						printf("%5d\t%9d\t%10d\t%-6s\t%9d\t%-8s\t%-5s\n",channel,serviceid,sdhdlink,toupper(source),sourceid,desc[2],auth[2])}
+		'
+	done
+	tabs 8
+}
+
+function bs()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mBoot Status\e[0m\n\nUsage: bs\n\nShow boot status." && continue
+}
+
+function ce()
+{
+# Runs the curl to address LRM/Insight entitlement mismatches.
+	[[ ${1} == "help" ]] && echo -e "\e[4mClear entitlements\e[0m\n\nUsage: ce [account number]\n\nTypically used to resolve Insight/LRM entitlement mismatches." && continue
+	declare AN
+        [[ -z ${ACCTNUM} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter an account number> " AN || AN=${1:-${ACCTNUM}}
+
+	echo -e "curl -X POST -v \"http://spectrum-partner.prd-aws.charter.net/api/pub/lrmmiddle/services/v2/entitlements/clearCache?accountNumber=${AN}&cacheType=all\""
+	pounds
+	curl --connect-timeout 5 -X POST "http://spectrum-partner.prd-aws.charter.net/api/pub/lrmmiddle/services/v2/entitlements/clearCache?accountNumber=${AN}&cacheType=all"|python -m json.tool
+	pounds -n
+}
+
+function cbc()
+{
+# Runs the curl to allegedly clear billing codes from memcache
+# curl -v "http://spectrum-partner.prd-aws.charter.net/api/pub/accountmiddle/services/v1/video/test/<<ACTNUMBER>>/all"|python -m json.tool
+
+        [[ ${1} == "help" ]] && echo -e "\e[4mClear billing codes from memcache\e[0m\n\nUsage: cbc [account number]\n\nUsed to resolve entitlement or authorization issues." && continue
+#        [[ ${#} -lt 1 ]] && read -rp "Enter an account number> " ACCTNUM || ACCTNUM=${1}
+	declare AN
+        [[ -z ${ACCTNUM} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter an account number> " AN || AN=${1:-${ACCTNUM}}
+
+	echo -e "curl \"http://spectrum-partner.prd-aws.charter.net/api/pub/accountmiddle/services/v1/video/test/${AN}/all\""
+	pounds
+	curl --connect-timeout 5 "http://spectrum-partner.prd-aws.charter.net/api/pub/accountmiddle/services/v1/video/test/${AN}/all"|python -m json.tool
+	pounds -n
+	echo
+
+}
+
+function er()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mEntitlement Recalculation\e[0m\n\nUsage: er\n\nTypically used for missing channels. Needs route to TW network." && continue
+	read -rp "Enter division ID> " DIVID
+	[[ -z ${ACCTNUM} ]] && read -rp "Enter account number> " ACCTNUM
+
+	echo -e "http://69.134.168.7:8877/ecp/entitlements/v2/entitlements?divisionId=${DIVID}&accountNumber=${ACCTNUM}&recalculate=true"
+	pounds
+	curl --connect-timeout 5 -v "http://69.134.168.7:8877/ecp/entitlements/v2/entitlements?divisionId=${DIVID}&accountNumber=${ACCTNUM}&recalculate=true"
+	pounds
+}
+
+function li()
+{
+# Login Info for STB and account
+	[[ ${1} == "help" ]] && echo -e "\e[4mLogin Info for STB and account\e[0m\n\nUsage: li [mac]\n\nPrints STB login info. This is the login info the STB uses to connect to the account. This is NOT the login info used to log into the STB itself. By default, uses the MAC for the current STB." && continue
+	declare -u MACAddress
+        [[ -z ${MAC} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter a MAC address> " MACAddress || MACAddress=${1:-${MAC}}
+
+	echo -e "curl -v -X POST http://spectrum.prd-aws.charter.net/api/pub/loginedge/login/v1/auth/login -d macAddress=${MACAddress}"
+	pounds
+	curl --connect-timeout 5 http://spectrum.prd-aws.charter.net/api/pub/loginedge/login/v1/auth/login -d macAddress=${MACAddress} 2>/dev/null|python -m json.tool 2>/dev/null|tr -d '[,"]'|sed 's/AuthResponse: {/AuthResponse:\n    {/'
+	pounds
+	echo
+}
+
+function memm()
+{
+# Monitor EMMs in real time.
+# Gets EMM data from "cas info". Could also used diag page 16,
+	[[ ${1} == "help" ]] && echo -e "\e[4mMonitor EMMs in real time\e[0m\n\nUsage: memm\n\nPrints \"Received\" and \"Valid\" EMMs in real time. You can send hits in another term while monitoring this. Works only on Humax for now." && continue
+
+	echo -e "Monitoring EMMs (ctrl+c to quit)\n"
+	trap break SIGINT
+	while true
+	do
+		sendcommand "silentdiag 16" ${IP}|grep -e "Emms Processed" -e "Emms Valid"
+		echo -e "\033[3A" # Move cursor up 3 lines.
+	done
+}
+
+function SelectDNCS()
+{
+# This presents a selectable menu and returns the option which was selected.
+	declare -a dncs
+	dncs[1]="Albany"
+	dncs[2]="All American Blvd"
+	dncs[3]="Austin"
+	dncs[4]="Bakersfield"
+	dncs[5]="Binghamton"
+	dncs[6]="Birmingham"
+	dncs[7]="Brandon"
+	dncs[8]="Brooklyn"
+	dncs[9]="Buffalo"
+	dncs[10]="Canton"
+	dncs[11]="Charlotte"
+	dncs[12]="Cincinnati"
+	dncs[13]="Cleveland"
+	dncs[14]="Columbia"
+	dncs[15]="Columbus"
+	dncs[16]="Deland"
+	dncs[17]="Dothan"
+	dncs[18]="Enterprise"
+	dncs[19]="Fortune"
+	dncs[20]="Ft Worth"
+	dncs[21]="Garden Grove/Los Angl"
+	dncs[22]="Greensboro"
+	dncs[23]="Hawaii/Oceanic"
+	dncs[24]="Hudson Valley"
+	dncs[25]="Indianapolis"
+	dncs[26]="Kansas City"
+	dncs[27]="Leeds"
+	dncs[28]="Lincoln"
+	dncs[29]="Milwaukee"
+	dncs[30]="Monterey Park(HRC)"
+	dncs[31]="Monterey Park(STD)"
+	dncs[32]="Newtown"
+	dncs[33]="North Manhattan"
+	dncs[34]="Peakview"
+	dncs[35]="Portland"
+	dncs[36]="Queens"
+	dncs[37]="ROTX"
+	dncs[38]="Raleigh"
+	dncs[39]="Rochester"
+	dncs[40]="San Antonio"
+	dncs[41]="San Diego"
+	dncs[42]="San Luis Obispo"
+	dncs[43]="South Manhattan"
+	dncs[44]="Staten Island"
+	dncs[45]="Syracuse"
+	dncs[46]="Terre Haute"
+	dncs[47]="Tri Cities"
+	dncs[48]="Wilmington"
+	dncs[49]="Worcester"
+
+	COLUMNS=$(tput cols)
+	PROMPT="Select DNCS> "
+	PS3="${PROMPT}"
+	select DNCS in "${dncs[@]}"
+	do
+		echo "${DNCS}" && return
+	done
+}
+
+function GetDNCSIP()
+{
+	[[ -z ${1} ]] && echo "What are you doing, chump?" && break
+	declare -A dncsip
+	dncsip[Albany]=67.244.163.130
+	dncsip[All American Blvd]=172.17.190.245
+	dncsip[Austin]=24.174.42.114
+	dncsip[Bakersfield]=172.28.191.2
+	dncsip[Binghamton]=67.244.164.194
+	dncsip[Birmingham]=172.29.191.2
+	dncsip[Brandon]=172.20.192.2
+	dncsip[Brooklyn]=98.12.128.16
+	dncsip[Buffalo]=69.205.193.15
+	dncsip[Canton]=76.57.145.161
+	dncsip[Charlotte]=104.138.48.16
+	dncsip[Cincinnati]=76.57.193.1
+	dncsip[Cleveland]=76.57.144.161
+	dncsip[Columbia]=104.138.48.76
+	dncsip[Columbus]=107.9.65.142
+	dncsip[Deland]=172.17.191.2
+	dncsip[Dothan]=172.18.0.49
+	dncsip[Enterprise]=172.18.0.113
+	dncsip[Fortune]=75.114.143.17
+	dncsip[Ft Worth]=172.28.5.243
+	dncsip[Garden Grove/Los Angl]=50.113.192.180
+	dncsip[Greensboro]=104.138.48.140
+	dncsip[Hawaii/Oceanic]=50.113.197.114
+	dncsip[Hudson Valley]=24.168.156.4
+	dncsip[Indianapolis]=172.27.191.2
+	dncsip[Kansas City]=24.174.42.210
+	dncsip[Leeds]=172.25.72.36
+	dncsip[Lincoln]=24.174.43.170
+	dncsip[Milwaukee]=76.57.160.200
+	dncsip[Monterey Park(HRC)]=172.27.25.1
+	dncsip[Monterey Park(STD)]=172.27.26.65
+	dncsip[Newtown]=172.20.106.1
+	dncsip[North Manhattan]=98.12.128.140
+	dncsip[Peakview]=192.168.100.1
+	dncsip[Portland]=67.244.175.2
+	dncsip[Queens]=98.12.128.204
+	dncsip[ROTX]=24.174.42.50
+	dncsip[Raleigh]=104.138.48.204
+	dncsip[Rochester]=67.244.176.130
+	dncsip[San Antonio]=24.174.42.178
+	dncsip[San Diego]=50.113.192.114
+	dncsip[San Luis Obispo]=172.29.162.38
+	dncsip[South Manhattan]=98.12.129.13
+	dncsip[Staten Island]=98.12.129.76
+	dncsip[Syracuse]=67.244.183.99
+	dncsip[Terre Haute]=172.18.0.33
+	dncsip[Tri Cities]=172.21.56.36
+	dncsip[Wilmington]=104.138.49.13
+	dncsip[Worcester]=172.20.11.36
+
+	echo ${dncsip["${1}"]}
+}
+
+function GetDNCSUSER()
+{
+	[[ -z ${1} ]] && echo "What are you doing, chump?" && break
+	declare -A dncsuser
+
+	dncsuser[Albany]=twcadmin
+	dncsuser[All American Blvd]=twcadmin
+	dncsuser[Austin]=twcadmin
+	dncsuser[Bakersfield]=twcadmin
+	dncsuser[Binghamton]=twcadmin
+	dncsuser[Birmingham]=twcadmin
+	dncsuser[Brandon]=twcadmin
+	dncsuser[Brooklyn]=twcadmin
+	dncsuser[Buffalo]=twcadmin
+	dncsuser[Canton]=twcadmin
+	dncsuser[Charlotte]=twcadmin
+	dncsuser[Cincinnati]=twcadmin
+	dncsuser[Cleveland]=twcadmin
+	dncsuser[Columbia]=twcadmin
+	dncsuser[Columbus]=twcadmin
+	dncsuser[Deland]=twcadmin
+	dncsuser[Dothan]=twcadmin
+	dncsuser[Enterprise]=twcadmin
+	dncsuser[Fortune]=twcadmin
+	dncsuser[Ft Worth]=twcadmin
+	dncsuser[Garden Grove/Los Angl]=twcadmin
+	dncsuser[Greensboro]=twcadmin
+	dncsuser[Hawaii/Oceanic]=twcadmin
+	dncsuser[Hudson Valley]=twcadmin
+	dncsuser[Indianapolis]=twcadmin
+	dncsuser[Kansas City]=twcadmin
+	dncsuser[Leeds]=sstadmin
+	dncsuser[Lincoln]=twcadmin
+	dncsuser[Milwaukee]=twcadmin
+	dncsuser[Monterey Park(HRC)]=sstadmin
+	dncsuser[Monterey Park(STD)]=sstadmin
+	dncsuser[Newtown]=sstadmin
+	dncsuser[North Manhattan]=twcadmin
+	dncsuser[Peakview]=twcadmin
+	dncsuser[Portland]=twcadmin
+	dncsuser[Queens]=twcadmin
+	dncsuser[ROTX]=twcadmin
+	dncsuser[Raleigh]=twcadmin
+	dncsuser[Rochester]=twcadmin
+	dncsuser[San Antonio]=twcadmin
+	dncsuser[San Diego]=twcadmin
+	dncsuser[San Luis Obispo]=twcadmin
+	dncsuser[South Manhattan]=twcadmin
+	dncsuser[Staten Island]=twcadmin
+	dncsuser[Syracuse]=twcadmin
+	dncsuser[Terre Haute]=twcadmin
+	dncsuser[Tri Cities]=twcadmin
+	dncsuser[Wilmington]=twcadmin
+	dncsuser[Worcester]=sstadmin
+
+	echo ${dncsuser["${1}"]}
+}
+
+function dncs()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mDNCS\e[0m\n\nUsage: dncs [root]\n\nLog in to DNCS. If the "root" option is specified, then you will log into the DNCS as user "dncs" via root. This assumes the passwords haven't been changed." && continue
+	[[ ${1} == "root" ]] && ROOT=1
+
+	DNCS=$(SelectDNCS)
+	DNCSIP=$(GetDNCSIP "${DNCS}")
+	if [[ ${ROOT} -eq 1 ]]
+	then
+		DNCSUSER=root
+		CMD='su - dncs'
+	else
+		DNCSUSER=$(GetDNCSUSER "${DNCS}")
+		CMD=
+	fi
+	echo "ssh -qYt ${DNCSUSER}@${DNCSIP} ${CMD}"
+	ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -qYt ${DNCSUSER}@${DNCSIP} ${CMD}
+}
+
+function MACinDB()
+{
+	DNCSIP="${1}"
+	MAC="${2}"
+	ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -qY root@${DNCSIP} su - dncs << E! 2>/dev/null|grep -v Oracle|grep -v mail|grep -v Working|grep -v Database
+	dbaccess dncsdb - <<E1 2>/dev/null|sed '/^$/d'
+	select * from hct_profile where hct_mac_address="${MAC}";
+E1
+E!
+}
+
+function InstantHit()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mInstant Hit\e[0m\n\nUsage: ih [mac]\n\nSends instant hit from controller to box specified by mac. You will be prompted to select the controller on which the mac is registered. The MAC address, if known, of the current STB will be sent by default. If the hit succeeds, the number of processed and valid EMMs will be display. These numbers are NOT the current valiues on the box, but rather the CHANGE in values." && continue
+	declare -u MACAddress
+	declare -u MACC
+        [[ -z ${MAC} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter a MAC address> " MACAddress || MACAddress=${1:-${MAC}}
+	MACC="$(echo ${MACAddress}|sed 's/..\B/&:/g')"
+	DNCS=$(SelectDNCS)
+	DNCSIP=$(GetDNCSIP "${DNCS}")
+	MAC_in_DB=$(MACinDB ${DNCSIP} ${MACC})
+	if [[ -z ${MAC_in_DB} ]]
+	then
+		echo "WARNING! WARNING! ${MACAddress} was not provisioned in ${DNCS}. Try again, or try a different DNCS or replace box." 
+	else
+		EMMP0=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Processed/ {print $NF}')
+		EMMV0=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Valid/ {print $NF}')
+		ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -qY root@${DNCSIP} su - dncs << EOM|grep -e Inst -e bossServer
+IIH -i "${MACAddress}" 2>/dev/null
+EOM
+		EMMP1=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Processed/ {print $NF}')
+		EMMV1=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Valid/ {print $NF}')
+		echo "------------------------------"
+		echo "Change in Emms Processed $((EMMP1 - EMMP0))"
+		echo "Change in Emms Valid $((EMMV1 - EMMV0))"
+		echo "------------------------------"
+	fi
+}
+
+function StagingHit()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mStaging Hit\e[0m\n\nUsage: sh [mac]\n\nSends staging hit from controller to box specified by mac. You will be prompted to select the controller on which the mac is registered. The MAC address, if known, of the current STB will be sent by default. If the hit succeeds, the number of processed and valid EMMs will be display. These numbers are NOT the current valiues on the box, but rather the CHANGE in values." && continue
+	declare -u MACAddress
+	declare -u MACC
+        [[ -z ${MAC} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter a MAC address> " MACAddress || MACAddress=${1:-${MAC}}
+	MACC="$(echo ${MACAddress}|sed 's/..\B/&:/g')"
+	DNCS=$(SelectDNCS)
+	DNCSIP=$(GetDNCSIP "${DNCS}")
+	MAC_in_DB=$(MACinDB ${DNCSIP} ${DNCSPASS} ${MACC})
+	if [[ -z ${MAC_in_DB} ]]
+	then
+		echo "WARNING! WARNING! ${MACAddress} was not provisioned in ${DNCS}. Try a different dncs or replace box."
+	else
+		EMMP0=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Processed/ {print $NF}')
+		EMMV0=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Valid/ {print $NF}')
+		ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -qY root@${DNCSIP} su - dncs << E!|grep -v Oracle|grep -v mail|grep -v "new mail"|grep -v Working|grep -v Database|sed '/^$/d'
+modDhctCfg -s "${MACAddress}"
+E!
+		EMMP1=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Processed/ {print $NF}')
+		EMMV1=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Valid/ {print $NF}')
+		echo "------------------------------"
+		echo "Change in Emms Processed $((EMMP1 - EMMP0))"
+		echo "Change in Emms Valid $((EMMV1 - EMMV0))"
+		echo "------------------------------"
+	fi
+}
+
+function RefreshHit()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mRefresh Hit\e[0m\n\nUsage: rh [mac]\n\nSends refresh hit from controller to box specified by mac. You will be prompted to select the controller on which the mac is registered. The MAC address, if known, of the current STB will be sent by default. If the hit succeeds, the number of processed and valid EMMs will be display. These numbers are NOT the current valiues on the box, but rather the CHANGE in values." && continue
+	declare -u MACAddress
+	declare -u MACC
+        [[ -z ${MAC} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter a MAC address> " MACAddress || MACAddress=${1:-${MAC}}
+	MACC="$(echo ${MACAddress}|sed 's/..\B/&:/g')"
+	DNCS=$(SelectDNCS)
+	DNCSIP=$(GetDNCSIP "${DNCS}")
+	MAC_in_DB=$(MACinDB ${DNCSIP} ${DNCSPASS} ${MACC})
+	if [[ -z ${MAC_in_DB} ]]
+	then
+		echo "WARNING! WARNING! ${MACAddress} was not provisioned in ${DNCS}. Try a different dncs or replace box."
+	else
+		EMMP0=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Processed/ {print $NF}')
+		EMMV0=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Valid/ {print $NF}')
+		ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -qY root@${DNCSIP} su - dncs << E!|grep -v Oracle|grep -v mail|grep -v "new mail"|grep -v Working|grep -v Database|sed '/^$/d'
+modDhctCfg "${MACAddress}"
+E!
+		EMMP1=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Processed/ {print $NF}')
+		EMMV1=$(sendcommand "silentdiag 16" ${IP}|awk '/Emms Valid/ {print $NF}')
+		echo "------------------------------"
+		echo "Change in Emms Processed $((EMMP1 - EMMP0))"
+		echo "Change in Emms Valid $((EMMV1 - EMMV0))"
+		echo "------------------------------"
+	fi
+}
+
+function parsecommand()
+{
+	CMD="${1}"
+	CUSTOMCMDS="0-23, at, bs, bye, c [chan] [chan], cbc [acctnum], ce [acctnum], cc, cl, clear, cls, dncs, e, end, er, exit, h, hbo, hist, i, ib, ih [mac], li [mac], lsrec, memm, N, n, ob, on, off, psnf, pus, quit, rh [mac], root, se, sh [mac], zodiac."
+	case "${CMD,,}" in
+		[0-9]|1[0-9]|2[0-3])	diag ${CMD}; continue;;
+		at)			at;continue;;
+		at' '*help)		at help;continue;;
+		bye|end|exit|q)		rbye;break;;
+		bye' '*help|end' '*help|exit' '*help|q' '*help)	rbye help;continue;;
+		bs)			[[ ${sw_p} == "01.25" ]] && sendcommand "boot status" "${IP}" \
+					|| sendcommand "bootdiag status" "${IP}"
+					continue;;
+		bs' '*help)		bs help; continue;;
+#		c' '*[0-9]*' '*[0-9]*)	echo ${CMD}|awk '{FIRST=NF-1;SECOND=NF;print $FIRST,$SECOND}';continue;; 
+		c)			chans;continue;;
+		c' '*help)		chans help;continue ;;
+ 		c' '*[0-9]*' '*[0-9]*)	dcn $(echo ${CMD}|awk '{FIRST=NF-1;SECOND=NF;print $FIRST,$SECOND}');continue;; 
+		c' '*[0-9]*)		dcn $(echo ${CMD}|awk '{print $NF}');continue;; 
+		cbc)			cbc;;
+		cbc' '*help)		cbc help;;
+		cbc' '*[0-9]*)		cbc $(echo ${CMD}|awk '{print $NF}');;
+		ce)			ce;;
+		ce' '*help)		ce help;;
+		ce' '*[0-9]*)		ce $(echo ${CMD}|awk '{print $NF}');;
+		cc)			cc;continue;;
+		cc' '*help)		cc help;continue;;
+		cl)			ChangeLog;continue;;
+		cl' '*help)		ChangeLog help;continue;;
+		cls|clear)		clear;continue;;
+		cls' '*help|clear' '*help)	echo -e "\e[4mClear Screen\e[0m\n\nUsage: cls|clear";continue;;
+		dncs)			dncs;;
+		dncs' '*root)		dncs root;;
+		dncs' '*help)		dncs help;;
+		e)			Entitlements;;
+		e' '*help)		Entitlements help;;
+		er)			er;;
+		er' '*help)		er help;;
+		hbo)			hbo;;
+		hbo' '*help)		hbo help;;
+		hist)			history;continue;;
+		hist' '*help)		echo -e "\e[4mHistory\e[0m\n\nUsage: hist\n\nShow command history.";continue;;
+		i)			gsi;continue;;
+		i' '*help)		gsi help;continue;;
+		ib)			ibtrans;continue;;
+		ib' '*help)		ibtrans help;continue;;
+		ih)			InstantHit;;
+		ih' '*[0-9a-fA-F:]*)	InstantHit $(echo ${CMD}|awk '{print $NF}');;
+		ih' '*help)		InstantHit help;;
+		h|help)			echo -e "Internal commands:\n"
+					[[ ${Boxtype} == Legacy ]] && sendcommand help ${IP}|sed ':a;N;$!ba;s/\n//g'|sed 's/\([,:]\)\([a-zA-Z]\)/\1\n\2/g' || WBHelp
+					echo -e "\nCustom commands:\n"
+					echo ${CUSTOMCMDS} | fmt -w $(( ${COLUMNS} - 2 ))
+					continue;;
+		h' '*help|help' '*help)	echo -e "\e[4mHelp\e[0m\n\nUsage: h|help\n\nShow list of available commands.";continue;;
+		li)			li;;
+		li' '*help)		li help;;
+		li' '*[a-fA-F0-9:]*)	li $(echo ${CMD}|awk '{print $NF}');;
+		lsrec)			lsrec;continue;;
+		lsrec' '*help)		lsrec help;continue;;
+		memm)			memm;;
+		memm' '*help)		memm help;;
+		n)			nuke;continue;;
+		N)			nukef;continue;;
+		n' '*help)		nuke help;continue;;
+		N' '*help)		nukef help;continue;;
+		ob)			oobtrans;continue;;
+		ob' '*help)		oobtrans help;continue;;
+		on)			on;continue;;
+		on' '*help)		on help;continue;;
+		off)			off;continue;;
+		off' '*help)		off help;continue;;
+		psnf)			psnf;continue;;
+		psnf' '*help)		psnf help;continue;;
+		pus)			pus;continue;;
+		pus' '*help)		pus help;continue;;
+		rh)			RefreshHit;;
+		rh' '*[0-9a-fA-F:]*)	RefreshHit $(echo ${CMD}|awk '{print $NF}');;
+		rh' '*help)		RefreshHit help;;
+		root)			Root && continue;;
+		root' '*help)		Root help && continue;;
+		se)			SetEnt;;
+		se' '*help)		SetEnt help;;
+		sh)			StagingHit;;
+		sh' '*[0-9a-fA-F:]*)	StagingHit $(echo ${CMD}|awk '{print $NF}');;
+		sh' '*help)		StagingHit help;;
+		zodiac)			Zodiac;;
+		zodiac' '*help)		Zodiac help;;
+		*)			sendcommand "${CMD}" ${IP}
+					continue;;
+	esac
+}
+
+function SetEnt()
+{
+# Sets entitlements via curl.
+# Used to fix channels which are incorrectly "False".
+# The default MAC will be used, unless the
+# user specifies a different MAC at the prompt.
+	[[ ${1} == "help" ]] && echo -e "\e[4mSet Entitlements\e[0m\n\nUsage: se [mac]\n\nSets entitlements by sending service level IDs via curl. Typically used to fix incorrect \"False\" channels." && continue
+
+	declare -u MACAddress
+        [[ -z ${MAC} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter a MAC address> " MACAddress || MACAddress=${1:-${MAC}}
+	read -p"Enter filename or press <ENTER> to enter service level IDs manually> " FNAME
+	if [[ ${FNAME} ]]
+	then
+		SLIDS=$(for i in $(cat ${FNAME} | sed 's/,/ /g'); do echo $i; done|sort -nu|xargs)
+	else
+		unset GOODDATA
+		while [[ -z ${GOODDATA} ]]
+		do
+			read -p"Enter at least one service level ID> " SLIDS
+			[[ ${SLIDS} =~ [[:alpha:][:punct:]] ]] && echo "Invalid entry. Try again." || GOODDATA=1
+		done
+	fi
+	[[ -z ${SLIDS} ]] && echo && continue
+#	echo "mac=\"${mac}\""
+	SLIDS=$(echo ${SLIDS}|xargs printf "\"%d\""|sed 's/""/","/g'|sed 's/"//g')
+#	echo "curl -X POST -H \"Content-Type:application/json\" -d '{\"macAddress\":\"${MACAddress}\",\"blockAll\":false,\"packages\":[${SLIDS}]}' 'http://localhost:8080/ams/amsDefEntitlementsService?req=SetEntitlements'"
+ 	      curl -X POST -H "Content-Type:application/json" -d \{"macAddress":"${MACAddress}","blockAll":false,"packages":[${SLIDS}]\} 'http://localhost:8080/ams/amsDefEntitlementsService?req=SetEntitlements'|python -m json.tool
+	echo
+}
+
+function hbo()
+{
+# Sent HBO service level IDs to a box using curl.
+# The default MAC will be used, unless the
+# user specifies a different MAC at the prompt.
+        [[ ${1} == "help" ]] && echo -e "\e[4mHBO\e[0m\n\nUsage: hbo [mac]\n\nSets HBO channels to \"True\" on box." && continue
+	declare -u MACAddress
+        [[ -z ${MAC} ]] && [[ ${#} -lt 1 ]] && read -rp "Enter a MAC address> " MACAddress || MACAddress=${1:-${MAC}}
+
+# Set HBO Service Level IDs here. If they change, make the change here.
+        HBOSLIDS="78 79 311 312 315 316 398 573 574 575 576 577 593 599 607 615 624 625 633 634 642 649 653 1112 1256 1273 1356 1459 1460 1522 1581 1582 1656 1688 1708 1733 1847 1848 1858 1948 2046 2081 2094 2136 2148 2151 2224 2225 2226 2227 2263 2319 2326 2454 2540 2760 3094 3095 3096 3097 3134 3135 3136 3137 3144 3145 3146 3148 3149 3282 3485 3486 3544 3549 3578 3645 3646 3647 3648 3649 3805 3905 3914 3917 3970 4081 4084 4085 4190 4524 4525 4526 4527 4601 4602 4727 4963 5054 5056 5057"
+
+# Put each number in quotes and separate them with a comma.
+        SLIDS=$(echo ${HBOSLIDS}|xargs printf "\"%d\""|sed 's/""/","/g')
+
+# During testing on a particular AMS, it failed until I made the mac address upper case.
+        curl -vX POST -H "Content-Type:application/json" -d \{"macAddress":"${MACAddress}","blockAll":false,"packages":[${SLIDS}]\} 'http://localhost:8080/ams/amsDefEntitlementsService?req=SetEntitlements'
+	echo
+}
+
+function mterm()
+{
+#	Interactive psuedo-terminal for sending commands to box.
+#
+#	An endless loop  prompts user for input.
+#	The prompt displayed is the IP address of the target and '>'.
+#	Commands consisting of pipes (|) and redirects (>) are parsed 
+#	such that the first command is sent to "parsecommand" function,
+#	and the output of that function is piped or redirected to the
+#	remaining items on the command line which was entered by the
+#	user at the prompt.
+#
+#	The commands entered by the user at the prompt are saved
+#	in a "history" file defined by the HIST* variables below. The
+#	user should be able to recall previous commands (and edit them
+#	if desired) by using the arrow keys.
+	export HISTFILE=~/.gsi_history
+	export HISTTIMEFORMAT="%d/%m/%y %T "
+	export HISTCONTROL=ignoreboth:erasedups
+	export HISTSIZE=10000
+	export HISTFILESIZE=100000
+
+	history -r ${HISTFILE}
+
+        while read -ep "${1}> " CMD
+	do
+		history -s "${CMD}"
+		s="[|>]"
+		if [[ ${CMD} =~ ${s} ]]
+		then
+			CMD1=${CMD%%[>|]*}
+			CMD2=${CMD#${CMD1}}
+			CMD1=$(echo ${CMD1}|xargs) # To remove any leading or training whitespaces.
+#			echo "CMD1=\"${CMD1}\""
+#			echo "CMD2=\"${CMD2}\""
+			eval "parsecommand \"${CMD1}\"${CMD2}"
+		else
+			parsecommand "${CMD}"
+		fi
+	done
+
+	history -w ${HISTFILE}
+}
+
+function promptcommand()
+{
+#	Displays a prompt in the form of an IP address and '>'
+#	followed by the command which was sent to this function.
+#	This command will then be sent to parsecommand for 
+#	further processing.
+	ping -w 2 -c 1 ${IP} > /dev/null && PIP=${IP} || unset PIP
+	echo "${PIP}> ${1}"
+	parsecommand "${1}"
+}
+
+function cldvr_cache()
+{
+#	Only works on boxes with DVR capabilities.
+#	Available subcommands:
+#	init	- init Cloud DVR Client Cache
+#	clear	- clears the cache!
+#	version	- Shows cache version
+	unset C[*]
+	C[0]='cldvr_cache clear'
+	C[1]='cldvr_cache init'
+	for CMD in "${C[@]}"
+	do
+		promptcommand "${CMD}"|grep -v ^OK|grep -v ^goodbye
+	done
+}
+
+function pwdvr()
+{
+#	Available subcommands:
+#	init			- init Cloud DVR Client
+#	request			- shows current request
+#	DVR_List_Status		- sends DVR list status request to the server
+#	stat			- print Cloud DVR statistics
+#	Recorded_Program_Update	- sends Recorded Program Update notification to the server
+#	Scheduled_Program_Update	- sends Scheduled Program Update notification to the server
+#	clear_history		- Clears history recordings/schedules (not in runtime!)
+	unset C[*]
+	C[0]='pwdvr Recorded_Program_Update'
+	C[1]='pwdvr Scheduled_Program_Update'
+	C[2]='pwdvr init'
+	for CMD in "${C[@]}"
+	do
+		promptcommand "${CMD}"
+	done
+}
+
+function dtsnvm()
+{
+#	Available subcommands:
+#	status                                                                     - report the current cache status
+#	disable                                                                    - disable NVM cache (no cached assets will be removed)
+#	enable                                                                     - enable NVM cache
+#	drop                                                                       - drop cache (remove all cached assets)
+#	dir [range=<from>,<to>] [count=<count>] [filter=<mask>] [exclude=<mask>]   - names of all cached assets
+#	info <asset name>                                                          - information about the specified asset
+#	checksum <asset name>                                                      - calculate actual checksum of the specified asset
+#	corrupt <asset name>                                                       - write random data to the asset without updating checksum
+#	remove <mask>                                                              - remove all assets that match the specified mask from cache
+	unset C[*]
+	C[0]='dtsnvm drop'
+	for CMD in "${C[@]}"
+	do
+		promptcommand "${CMD}"|grep -v ^OK|grep -v ^goodbye
+	done
+}
+
+function dtscache()
+{
+#	Available subcommands:
+#	status                                                                     - report current cache status
+#	dir [range=<from>,<to>] [count=<count>] [filter=<mask>] [exclude=<mask>]   - names of all cached assets
+#	info <asset alias>                                                         - information about specified asset
+#	purge <priority>                                                           - removes from cache all files with lesser priority than specified, use -1 to delete all files
+	unset C[*]
+	C[0]='dtscache purge -1'
+	for CMD in "${C[@]}"
+	do
+		promptcommand "${CMD}"|grep -v ^OK|grep -v ^goodbye
+	done
+}
+
+function update()
+{
+#	Updated dts and services
+#	Available dts subcommands:
+#	status										- Shows the current status of the DTS file system.
+#	dir [range=<from>,<to>] [count=<count>] [filter=<mask>] [exclude=<mask>]	- Prints all available assets.
+#	update										- Forces update of the root configs.
+#	info <name>									- Prints detailed information about the given asset.
+#	dts load <name>									- Downloads and caches (if appropriate) the given asset.
+#	dts abort <name>								- Aborts download of the given asset. Reports an error to a client that requested the asset.
+#
+#	Available pwsrv subcommands:
+#	pwsrv suspend <service name>		- suspend service
+#	activate <service name>			- activate service
+#	add <channel> <service name> <url>	- add service
+#	remove <service name>|<service ID>	- remove service
+#	enum					- show list of all enabled services
+#	disabled				- show list of all disabled services
+#	channels				- show list of all channels
+#	update					- update services (including disabled services)
+#	prov <-1 | 0 | 1>			- prov_error|suspend|launch provisioning
+#	info <service name>|<service ID>	- print info about service
+#	help					- display this help message
+	unset C[*]
+	C[0]='dts update'
+	C[1]='pwsrv update'
+	for CMD in "${C[@]}"
+	do
+		promptcommand "${CMD}"|grep -v ^OK
+	done
+}
+
+function pwsetmgr()
+{
+#	Reset settings
+#	Available subcommands:
+#	dump				- dump settings with values
+#	reset				- reset all settings to default values
+#	help				- display this help message
+#	dump_rovio			- dump rovio nvram if exist
+#	get <setting name>		- display value of setting by name
+#	set <setting name> <value>	- set numeric value to not array setting by name
+	unset C[*]
+	C[0]='pwsetmgr reset'
+	for CMD in "${C[@]}"
+        do
+                promptcommand "${CMD}"|grep -v ^OK
+        done
+}
+
+function regflag()
+{
+	CMD='pwreg forceset registration_flag 1'
+	promptcommand "${CMD}"|grep -v ^OK
+}
+
+function ibtrans()
+{
+#	ibtrans
+#	Available subcommands:
+#	histxi			- Display transport loading history.
+#	info			- Display transport internal state information.
+# 	isten <stream url>	- Force stream listening. Url formats: "oob://Z_OOB1", "ib://dm?sid=118"
+# 	top			- Stop forced listening.
+	[[ ${1} == "help" ]] && echo -e "\e[4mIB Trans Hist\e[0m\n\nUsage: ib\n\nShow in-band transfer history. Not available on World Boxes." && continue
+	[[ ${Boxtype} == WorldBox ]] && echo "ibtrans is not available on ${Boxtype}" && continue
+	unset C[*]
+	C[0]='ibtrans hist'
+	for CMD in "${C[@]}"
+        do
+                promptcommand "${CMD}"
+        done
+}
+
+function oobtrans()
+{
+#	oobtrans
+#	Available subcommands:
+#	hist			- Display transport loading history.
+#	info			- Display transport internal state information.
+#	listen <stream url>	- Force stream listening. Url formats: "oob://Z_OOB1", "ib://dm?sid=118"
+#	stop			- Stop forced listening.
+	[[ ${1} == "help" ]] && echo -e "\e[4mOOB Trans Hist\e[0m\n\nUsage: ob\n\nShow out-of-band transfer history. Not available on World Boxes." && continue
+	[[ ${Boxtype} == WorldBox ]] && echo "oobtrans is not available on ${Boxtype}" && continue
+	unset C[*]
+	C[0]='oobtrans hist'
+	for CMD in "${C[@]}"
+        do
+                promptcommand "${CMD}"
+        done
+}
+
+function bootstatus
+{
+#	boot (SW Verison 1.25 and under)
+#	bootdiag (SW Version above 1.25)
+#
+	BOOTRESULT=$(sendcommand boot ${IP})
+	[[ ${BOOTRESULT} =~ "Unknown command" ]] && BOOTCMD='bootdiag' || BOOTCMD='boot'
+	[[ ${Boxtype} == WorldBox ]] && BOOTCMD='bootdiag'
+	promptcommand "${BOOTCMD} status"|grep -v ^OK|grep -v ^goodbye
+}
+
+function Entitlements()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mEntitlements\e[0m\n\nUsage: e\n\nShow cached entitlements (NCS or service level IDs). See the \"Entitlements\" tab in RIO for the account.\n\nNote: the maximum string length that can be printed is 4096. It is possible that not all NCS IDs will be displayed." && continue
+	promptcommand "de_client entitlements"|grep -iv ^OK|sed 's/goodbye!//'
+}
+
+function rebootbox()
+{
+	[[ ${Boxtype} == Legacy ]] && REBOOTCMD="osdiag RebootNow"
+	[[ ${Boxtype} == WorldBox ]] && REBOOTCMD="RebootNOW"
+	promptcommand "${REBOOTCMD}"|grep -vie "^OK" -ve "^goodbye"
+}
+
+function nuke()
+{
+#	Perform the "nuclear option".
+#	This deletes, resets, and updates everything.
+	[[ ${1} == "help" ]] && echo -e "\e[4mNuke\e[0m\n\nUsage: n\n\nDeletes or resets numerous caches, reloads start.pack, updates profile, resets service group, syncs with cloud DVR, updates services, resets CAS, resets settings.\nDoes not reboot. Does not delete recordings." && continue
+	C[0]='dob2pe mm'
+	C[1]='dob2pe reset start'
+	C[2]='dob2pe reset asset_cache'
+	C[3]='dob2pe reset res_caches'
+	C[4]='dob2pe reset all'
+	C[5]='profile update'
+	C[6]='sgd reset'
+	C[7]='cldvr_cache clear'
+	C[8]='cldvr_cache init'
+	C[9]='ipgd cache-cleanup'
+	C[10]='dtscache purge -1'
+	C[11]='dtsnvm drop'
+	C[12]='pwdvr Recorded_Program_Update'
+	C[13]='pwdvr Scheduled_Program_Update'
+	C[14]='pwdvr init'
+	C[15]='dts update'
+	C[16]='pwsrv update'
+	C[17]='motocas reset'
+	C[18]='pwsetmgr reset'
+	for CMD in "${C[@]}"
+        do
+                promptcommand "${CMD}"
+        done
+}
+
+function nukef()
+{
+	[[ ${1} == "help" ]] && echo -e "\e[4mNuke\e[0m\n\nUsage: N\n\nDeletes or resets numerous caches, reloads start.pack, updates profile, resets service group, syncs with cloud DVR, updates services, resets CAS, resets settings.\nThen executes ffsReset. Does not delete recordings." && continue
+	nuke
+	promptcommand ffsReset
+}
+
+function gsiawk()
+{
+# Currently not used.
+# This is slower than sending individual commands to the box.
+	echo "Gathering info..."
+	NC='nc -4u -w1 ${IP} 65432'
+	CMD1='pwreg enumi'
+	CMD2='pwsetmgr dump'
+	CMD3='osdiag uptime'
+	echo "$(sendcommand "${CMD3}" ${IP})" "$(sendcommand "${CMD1}" ${IP})" "$(sendcommand "${CMD2}" ${IP})"|awk \
+	'
+		$2=="SerialID"			{SID=$3}
+		$2=="MacAddress"		{MAC1=$3}
+		$2=="registration_flag"		{RF=$3}
+		$1=="UpTime:"			{UT=$3" "$4" "$5" "$6" "$7" "$8}
+		$2=="avn.vod_id"		{HEID=$3}
+		$2=="HubID"			{HUBID=$3}
+		$2=="VctID"			{VCTID1=$3}
+		$2=="VCT_ID"			{VCTID2=$3}
+		$2=="LugID"			{LUGID1=$3}
+		$2=="LUG_ID"			{LUGID2=$3}
+		$2=="NodeID"			{NODEID=$3}
+		/Service group:/		{SG=$3}
+		$1=="sdv_service_group"		{SDVSG=$3}
+		$2=="power_state"		{PWR=$3}
+		$2=="ready_to_watch"		{RTW=$3}
+		$2=="LimitedMode"		{LM=$3}
+		$2=="hd_auto_tune"		{HDAT=$3}
+		$2=="migration_flag"		{MFLAG=$3}
+		$2=="CallerID"			{CALLERID=$3}
+		$2=="current_channel_dcn"	{CCHAN=$3}
+		$2=="last_channel_dcn"		{LCHAN=$3}
+		$2=="SWVersion"			{SWVER=$3}
+		$2=="FlashVersion"		{FVER=$3" "$4}
+		$2=="Manufacturer"		{MANUF=$3}
+		$2=="BoxModel"			{MODEL=$3}
+		END \
+		{
+			print "SerialID		"SID
+			print "MacAddress	"MAC1
+			print "Reg. Flag	"RF
+			print "System time	"
+			print "Uptime		"UT
+			print "Headend ID	"HEID
+			if (VCTID1=="" )
+				VCTID1=VCTID2
+			if (LUGID1==" ")
+				LUGID1=LUGID2
+			print "Hub|VCT|LUG	"HUBID"|"VCTID1"|"LUGID1
+			print "Lineup		"LINEUP
+			print "NodeID|SGID	"NODEID"|"SG
+			printf "SDV SGID\t%d\n",strtonum(SDVSG)
+			print "Power state	"PWR
+			print "Ready to watch	"RTW
+			print "Limited mode	"LM
+			print "HD auto tune	"HDAT
+			print "Migration flag	"MFLAG
+			print "Caller ID	"CALLERID
+			print "Curr|Last chan	"CCHAN"|"LCHAN
+			print "SW version	"SWVER
+			print "Flash version	"FVER
+			print "Box model	"MANUF" "MODEL
+			
+		}
+		
+	'
+}
+
+function gwbi()
+{
+	sshpass -pV6AZPyTE8KbhZ ssh -T zodiac@${IP} 2>/dev/null << EOM|awk \
+		'
+		BEGIN {printf "Getting Settopbox Info"}
+		$1=="SerialID"                  {SID=$NF;printf "."}
+		$1=="MacAddress"                {MAC1=$NF;gsub(/..\B/,"&:",$NF);MAC2=$NF;printf "."}
+		$1=="BoxIP"			{HIP=$NF;printf "."}
+		$1=="registration_flag"         {RF=$NF;printf "."}
+		/System time/                   {SECS=$5;gsub("[\\[\\],]","",SECS);printf "."}
+		/Running Time/                  {printf ".";split($NF,t,":");d=int(t[1]/24);h=int(t[1]%24);m=int(t[2]);s=int(t[3]);ms=int(t[4])}
+		$1=="avn.vod_id"                {HEID1=$NF;printf "."}
+		$1=="HubID"                     {HUBID=$NF;printf "."}
+		$1=="VctID"                     {VCTID1=$NF;printf "."}
+		$1=="VCT_ID"                    {VCTID2=$NF;printf "."}
+		$1=="LugID"                     {LUGID1=$NF;printf "."}
+		$1=="LUG_ID"                    {LUGID2=$NF;printf "."}
+		$1=="NodeID"                    {NODEID=$NF;printf "."}
+		/lineup.zdb/                    {LINEUP=$4" "$5;printf "."}
+		/Service group:/                {SGD=$3;printf "."}
+		$2=="Service" && $3=="group"    {SDVSG=$5;printf "."}
+		$1=="power_state"               {PWR=$NF;printf "."}
+		$1=="ready_to_watch"            {RTW=$NF;printf "."}
+		$1=="LimitedMode"               {LM=$NF;printf "."}
+		$1=="hd_auto_tune"              {HDAT=$NF;printf "."}
+		$1=="migration_flag"            {MFLAG=$NF;printf "."}
+		$1=="CallerID"                  {CALLERID=$NF;printf "."}
+		$1=="current_channel_dcn"       {CCHAN=$NF;printf "."}
+		$1=="last_channel_dcn"          {LCHAN=$NF;printf "."}
+		$1=="SWVersion"                 {SWVER=$NF;printf "."}
+		$1=="FlashVersion"              {FVER=$NF;printf "."}
+		$1=="Manufacturer"              {MANUF=$NF;printf "."}
+		$1=="BoxModel"                  {MODEL=$NF;printf ".\n"}
+		END {
+			while ("curl --connect-timeout 5 http://spectrum.prd-aws.charter.net/api/pub/loginedge/login/v1/auth/login -d macAddress="MAC1" 2>/dev/null|python -m json.tool 2>/dev/null|grep AccountNumber"|getline) {ACCTNUM=$2;gsub("[\",]","",ACCTNUM)}
+			if(ACCTNUM=="")
+				ACCTNUM="DEFAULT"
+			while ("curl --connect-timeout 5 http://spectrum.prd-aws.charter.net/api/pub/loginedge/login/v1/auth/login -d macAddress="MAC1" 2>/dev/null|python -m json.tool 2>/dev/null|grep ChannelLineupId"|getline) {CLID=$2;gsub("[\",]","",CLID)}
+			while ("curl --connect-timeout 5 http://spectrum.prd-aws.charter.net/api/pub/loginedge/login/v1/auth/login -d macAddress="MAC1" 2>/dev/null|python -m json.tool 2>/dev/null|grep HeadendId"|getline) {HEID2=$2;gsub("[\",]","",HEID2)}
+			printf "\033[1A\033[K"
+			printf "Account #\t%s\n",ACCTNUM
+			printf "SerialID\t%s\n",SID
+			printf "MacAddress\t%s | %s\n",tolower(MAC1),tolower(MAC2)
+			printf "IpAddress\t%s\n",HIP
+			printf "System time\t%s\n",strftime("%F %T",strtonum(SECS))
+			printf "Uptime\t\t(%d days, %02d hrs, %02d mins, %02d.%02d secs)\n",d,h,m,s,ms
+			printf "Headend ID\t%s|%s\n",HEID1,HEID2
+			printf "ChnlLineupID\t%s\n",CLID
+			if (VCTID1=="" )
+			VCTID1=VCTID2
+			if (LUGID1=="")
+			LUGID1=LUGID2
+			printf "Hub|VCT|LUG\t%s|%s|%s\n",HUBID,VCTID1,LUGID1
+			printf "Lineup\t\t%s\n",LINEUP
+			printf "NodeID|SGID\t%s|%s\n",NODEID,SGD
+			printf "SDV SGID\t%d\n",strtonum(SDVSG)
+			printf "Register flag\t%d\n",RF
+			printf "Power state\t%s\n",PWR
+			printf "Ready to watch\t%s\n",RTW
+			printf "Limited mode\t%s\n",LM
+			printf "HD auto tune\t%s\n",HDAT
+			printf "Migration flag\t%s\n",MFLAG
+			printf "Caller ID\t%s\n",CALLERID
+			printf "Curr|Last chan\t%s|%s\n",CCHAN,LCHAN
+			printf "SW version\t%s\n",SWVER
+			printf "FlashVersion\t%s\n",FVER
+			printf "Box model\t%s %s\n",MANUF,MODEL
+			LH=ENVIRON["HOSTNAME"]
+			"/usr/bin/host "LH|getline;{LHIP=$NF}
+			printf "Localhost\t%s - %s\n\n",LH,LHIP
+		}
+		'
+pwreg get SWVersion
+pwreg get SerialID
+pwreg get MacAddress
+pwreg get BoxIP
+systime get
+silentdiag 3
+pwreg get avn.vod_id
+pwreg get HubID
+pwreg get VctID
+pwreg get VCT_ID
+pwreg get LugID
+sdv info cache
+bootdiag status
+pwreg get NodeID
+sgd print
+pwreg get registration_flag
+pwreg get power_state
+pwreg get ready_to_watch
+pwreg get LimitedMode
+pwreg get hd_auto_tune
+pwreg get migration_flag
+pwreg get CallerID
+pwreg get current_channel_dcn
+pwreg get last_channel_dcn
+ps -f
+pwreg get FlashVersion
+pwreg get Manufacturer
+pwreg get BoxModel
+EOM
+}
+
+
+function gsi()
+{
+	[[ ${Boxtype} == WorldBox ]] && gwbi && return
+	[[ ${1} == "help" ]] && echo -e "\e[4mGet STB Info\e[0m\n\nUsage: i\n\nShow summary information about the STB." && continue
+	######################################################################
+	# Unset the variable so they don't retain values from previous loop
+	######################################################################
+	unset SerialID
+	unset mac
+	unset macc
+	unset box_model
+	unset sw_f
+	unset HUBID
+	unset VctID
+	unset VCT_ID
+	unset LugID
+	unset headend_id
+	unset nodeid
+	unset reg
+	unset sdv_sg
+	unset sdv_sg2
+	unset uptime
+	unset dvr_mgr
+	unset cal_id
+	unset pwr_stat
+	unset hdautotune
+	unset maker
+	unset rtw
+	unset limmode
+	BM="DCX3200p2,DCX3200HD,DCX3200MD 2055
+		DCH6200 610
+		DCX3220ED,DCX3220MHD 2075
+		DCX3200MHD,DCX3220MHD-p3,DCX3200MRF 2070
+		DCX3220e-HD 2072
+		DCT6200 602, 605, 610, 611
+		DCH3200HD 524
+		DCT5100HD 599, 601
+		DCT2500,DCT2524E 83
+		DCH2000 748
+		DCH70 758
+		DCT2000 8
+		DCT700 107
+		DCH6416 512
+		DCH3416 516
+		DCT6416,DCT3416 612
+		DCX3501MHD 2066
+		DCX3510MHD,DCX3520MHD 2071
+		DCX3520e-HD,DCX3425HD,DCX3432HD,DCX3432MHD 2076
+		DCX3425R 2053
+		DC550DDSG 1319
+		DCX3200MD,DCX3200R 2054
+		World_Box_DVR 210
+		World_Box_HD 110"
+	echo -n "Getting STB Info"
+	######################################################################
+	# Access the box via its IP and get info.
+	######################################################################
+	SerialID="`sendcommand 'pwreg get SerialID' ${IP}|awk '/SerialID/ {print $2}'`" && echo -n '.'
+	ACCTINFO=$(curl -X POST http://spectrum.prd-aws.charter.net/api/pub/loginedge/login/v1/auth/login -d macAddress=${MAC} 2>/dev/null) && echo -n '.'
+	CHLUID=$(echo ${ACCTINFO}|grep -o '"ChannelLineupId":"[A-Z0-9]*-[0-9]*"'|tr -d '"'|awk -F: '{print $NF}') && echo -n '.'
+	macc="`echo ${MAC}|sed 's/..\B/&:/g'`" && echo -n '.'
+	SECS=`sendcommand "systime get" ${IP}|grep "System time"|grep -o "[0-9]*"|head -1` && echo -n '.'
+	boxtime=`date -d "@${SECS}" +"%F %R %Z" 2>/dev/null` && echo -n '.'
+	box_model="`sendcommand 'pwreg get BoxModel' ${IP}|awk '/BoxModel/ {print $2}'`" && echo -n '.'
+	[[ ${Boxtype} == Legacy ]] && uptime="`sendcommand 'osdiag uptime' ${IP}|grep 'UpTime'|awk '{print $3, $4, $5, $6, $7, $8, $9}'`"
+	if [[ ${Boxtype} == WorldBox ]]
+	then
+		T=`sendcommand 'silentdiag 3' ${IP}|grep "Running Time"|grep -o "[0-9]*:[0-9]*:[0-9*:[0-9]*"`
+		H=`echo ${T}|cut -d":" -f1`
+		H=`expr ${H} + 0`
+		M=`echo ${T}|cut -d":" -f2`
+		S=`echo ${T}|cut -d":" -f3`
+		MS=`echo ${T}|cut -d":" -f4`
+		D=$((${H} / 24))
+		H=$((${H}%24))
+		uptime="(${D} days, ${H} hrs, ${M} mins, ${S}.${MS} secs)"
+	fi
+	echo -n '.'
+	sw_f="`sendcommand 'pwreg get FlashVersion' ${IP}|awk '/FlashVersion/ {print $2, $3}'`" && echo -n '.'
+	HUBID="`sendcommand 'pwreg get HubID' ${IP}|awk '/HubID/ {print $NF}'`" && echo -n '.'
+	VctID="`sendcommand 'pwreg get VctID' ${IP}|awk '/VctID/ {print $NF}'`" && echo -n '.'
+	VCT_ID="`sendcommand 'pwreg get VCT_ID' ${IP}|awk '/VCT_ID/ {print $NF}'`" && echo -n '.'
+	LugID="`sendcommand 'pwreg get LugID' ${IP}|awk '/LugID/ {print $2}'`" && echo -n '.'
+	headend_id="`sendcommand 'pwreg get avn.vod_id' ${IP}|awk '/avn.vod_id/ {print $NF}'`" && echo -n '.'
+	nodeid="`sendcommand 'pwreg get NodeID' ${IP}|awk '/NodeID/ {print $2}'`" && echo -n '.'
+	reg="`sendcommand 'pwreg get registration_flag' ${IP}|awk '/registration_flag/ {print $2}'`" && echo -n '.'
+	sdv_srv="`sendcommand 'sdv mc_info' ${IP}|grep 'Server:' |cut -f1 -d ";"|awk '{print $2}'`" && echo -n '.'
+	sdv_sg="`sendcommand 'sdv mc_info' ${IP}|grep 'Server:' |cut -f2 -d ";"|awk '{print $3}'`" && echo -n '.'
+	sdv_sg2="`sendcommand 'sdv info cache' ${IP}|awk '/Service group/ {print $5}'`" && echo -n '.'
+	dvr_mgr="`sendcommand 'pwreg get migration_flag' ${IP}|awk '/migration_flag/ {print $2}'`" && echo -n '.'
+	cal_id="`sendcommand 'pwreg get CallerID' ${IP}|awk '/CallerID/ {print $2}'`" && echo -n '.'
+	pwr_stat="`sendcommand 'pwreg get power_state' ${IP}|awk '/power_state/ {print $2}'`" && echo -n '.'
+	hdautotune="`sendcommand 'pwreg get hd_auto_tune' ${IP}|awk '/hd_auto_tune/ {print $NF}'`" && echo -n '.'
+	maker="`sendcommand 'pwreg get Manufacturer' ${IP}|awk '/Manufacturer/ {print $NF}'`" && echo -n '.'
+	rtw="`sendcommand 'pwreg get ready_to_watch' ${IP}|awk '/ready_to_watch/ {print $NF}'`" && echo -n '.'
+	limmode="`sendcommand 'pwreg get LimitedMode' ${IP}|awk '/LimitedMode/ {print $NF}'`" && echo -n '.'
+	[[ ${sw_p} == "01.25" ]] && lineup=$(sendcommand 'dtsnvm dir' ${IP}|awk '/lineup/ {print $2}'|tail -1|tr -d ',') \
+	|| lineup=$(sendcommand 'bootdiag status' ${IP}|awk '/lineup/ {print $4,$5}')
+	[[ -z ${lineup} ]] && lineup=$(sendcommand 'dts dir' ${IP}|awk '/lineup/ {print $2}'|tail -1|tr -d ',')
+	echo -n '.'
+	sgid=$(sendcommand 'sgd print' ${IP}|awk '/Service group:/ {print $3}') && echo -n '.'
+	CDCN=$(sendcommand 'pwreg get current_channel_dcn' ${IP}|awk '/current_channel_dcn/ {print $NF}') && echo -n '.'
+	LDCN=$(sendcommand 'pwreg get last_channel_dcn' ${IP}|awk '/last_channel_dcn/ {print $NF}') && echo -n "."
+	NTFX=$(sendcommand "ps -f" ${IP}|awk '/netflix/ {print $8,$9,$10}') && echo -n '.'
+	LHOST=$(uname -a|awk '{print $2}') && echo -n "."
+	LIP=$(host ${LHOST}|awk '{print $NF}') && echo -ne "done.\r"
+	
+	######################################################################
+	# Print the variables
+	######################################################################
+
+	tput el
+	[[ ${ACCTNUM} ]]		&& echo -e "${NL}Account #     \t${ACCTNUM}"
+	[[ ${SerialID} ]]		&& echo -e "${NL}SerialID      \t$SerialID"
+	[[ ${MAC} ]]			&& echo -e "${NL}MacAddress    \t${MAC,,} | ${macc,,}"
+	[[ ${IP} ]]			&& echo -e "${NL}IpAddress     \t${IP}"
+	[[ ${boxtime} ]]		&& echo -e "${NL}Systime       \t${boxtime}"
+	[[ ${uptime} ]]			&& echo -e "${NL}Uptime        \t${uptime}"
+	[[ ${headend_id} ]]		&& echo -e "${NL}Headend ID    \t${headend_id}"
+	[[ ${CHLUID} ]]			&& echo -e "${NL}ChnlLineupID  \t${CHLUID}"
+					   echo -e "${NL}Hub|VCT|LUG ID\t${HUBID:-"__"}|${VctID:-${VCT_ID:-"__"}}|${LugID:-"__"}"
+	[[ ${lineup} ]]			&& echo -e "${NL}Lineup        \t${lineup}"
+	[[ ${nodeid} || ${sgid} ]]	&& echo -e "${NL}NodeID|SGID   \t${nodeid:-"_____"}|${sgid:-"_____"}"
+	[[ ${sdv_sg} || ${sdv_sg2} ]]	&& echo -e "${NL}SDV SGID      \t${sdv_sg:-${sdv_sg2:-0}}"
+	[[ ${reg} ]]			&& echo -e "${NL}Register flag \t${reg}"
+	[[ ${pwr_stat} ]]		&& echo -e "${NL}Power State   \t${pwr_stat}"
+	[[ ${rtw} ]]			&& echo -e "${NL}Ready To Watch\t${rtw}"
+	[[ ${limmode} ]]		&& echo -e "${NL}Limited Mode  \t${limmode}"
+	[[ ${hdautotune} ]]		&& echo -e "${NL}HD Auto Tune  \t${hdautotune}"
+	[[ ${dvr_mgr} ]]		&& echo -e "${NL}DVR_migration \t$dvr_mgr"
+	[[ ${cal_id} ]]			&& echo -e "${NL}CallerID      \t$cal_id"
+	[[ ${CDCN} || ${LDCN} ]]	&& echo -e "${NL}Curr|last dcn\t${CDCN}|${LDCN}"
+	[[ ${NTFX} ]]			&& echo -e "${NL}Netflix       \t${NTFX}"
+	[[ ${sw_p} ]]			&& echo -e "${NL}SW Version    \t$sw_p"
+	[[ ${sw_f} ]]			&& echo -e "${NL}Firmware      \t$sw_f"
+	[[ ${maker} || ${box_model} ]]	&& echo -e "${NL}BoxModel      \t${maker} ${box_model}("`echo "${BM}"|grep ${box_model} 2>/dev/null|awk '{print $1}'`")"
+					   echo -e "${NL}Local Host    \t${LHOST} ${LIP}\n"
+}
+
+function usage
+{
+        echo -e "${N} (${0})$Id: gsi,v 5.0 2018/11/26 22:28:09 P2749056 Exp P2749056 $"
+        echo -e "Usage: ${0} [options]... ipaddress...\n"
+}
+
+function mbhelp
+{
+	tabs 4
+        usage
+	echo -e "\t-a\t\tAll: \"-D\", \"-d\", \"-P\", \"-p\", \"-u\"."
+        echo -e "\t-b\t\tBoodiag status [boot status] | [bootdiag status]."
+	echo -e "\t-c cmd\tRuns \"cmd\" on box. Quotes are required if \"cmd\" consists of more than 1 word."
+	echo -e "\t-D\t\tClear DVR cache: [cldvr_cache clear] and [cldvr_cache init]."
+	echo -e "\t-d\t\tClear DTS cache. [dtsnvm drop] and [dtscache purge -1]."
+	echo -e "\t-e\t\tEntitlements [de_client entitlements]."
+        echo -e "\t-h\t\tHelp. Other options will be ignored."
+	echo -e "\t-I\t\tDisplay stb info if other options are selected."
+	echo -e "\t-i\t\tIn-band trans hist: [ibtrans hist]."
+	echo -e "\t-N\t\tNuclear option. Resets and updates everything, including ffsReset."
+	echo -e "\t-n\t\tNuclear option. Resets and updates everything. Does not reboot."
+	echo -e "\t-o\t\tOut-of-band trans hist: [oobtrans hist]."
+	echo -e "\t-P\t\tReset settings: [pwsetmgr reset]."
+	echo -e "\t-p\t\tRun pwdvr commands to sync with cloud."
+	echo -e "\t-R\t\tReboot box [osdiag RebootNow]."
+	echo -e "\t-r\t\tReboot box only if powered off [osdiag RebootNow]."
+	echo -e "\t-u\t\tUpdate DTS and services: [dts update] and [pwsrv update]."
+	echo -e "\t-v\t\tVersion."
+        echo -e "\t-T\t\tInteractive terminal emulator (pseudo-term) and box info."
+        echo -e "\t-t\t\tInteractive terminal emulator (pseudo-term) no box info. Custom commands:"
+	echo -e "\t\t\t0\t\t\t\tList diag pages."
+	echo -e "\t\t\t1-23\t\t\tPrint diag page number."
+	echo -e "\t\t\tat\t\t\t\tToggle hd_auto_tune."
+	echo -e "\t\t\tbs\t\t\t\tBoot status."
+	echo -e "\t\t\tbye|end|exit|q\tTerminate session."
+	echo -e "\t\t\tc [chan] [chan]\tChannels (~13 min for entire list on World Box)."
+	echo -e "\t\t\tcbc [acctnum]\tClear billing codes."
+	echo -e "\t\t\tce [acctnum]\tClear entitlements."
+	echo -e "\t\t\tcc\t\t\t\tToggle closed_caption."
+	echo -e "\t\t\tcl\t\t\t\tChange log."
+	echo -e "\t\t\tclear|cls\t\tClear screen."
+	echo -e "\t\t\tdncs\t\t\tLog into DNCS."
+	echo -e "\t\t\te\t\t\tEntitlements."
+	echo -e "\t\t\ter\t\t\t\tEntitlement recalculation. Must be on TW network."
+	echo -e "\t\t\th\t\t\t\tHelp."
+	echo -e "\t\t\thbo\t\t\t\tSend HBO service level IDs via curl."
+	echo -e "\t\t\thist\t\t\tCommand history."
+	echo -e "\t\t\ti\t\t\t\tBox info."
+	echo -e "\t\t\tib|ob\t\t\tIn-band|Out-of-band trans hist."
+	echo -e "\t\t\tih [mac]\t\tInstant hit."
+	echo -e "\t\t\tlsrec\t\t\tList recordings."
+	echo -e "\t\t\tli [mac]\t\tLogin info of STB with account."
+	echo -e "\t\t\tmemm\t\t\tMonitor EMMs in real time."
+	echo -e "\t\t\tN\t\t\t\tNuclear option + ffsReset."
+	echo -e "\t\t\tn\t\t\t\tNuclear option."
+	echo -e "\t\t\ton|off\t\t\tSet power_state to 1 (on) or 0 (off)."
+	echo -e "\t\t\tpsnf\t\t\tps Netflix (show Netlfix processes)."
+	echo -e "\t\t\tpus\t\t\t\tPower-up status."
+	echo -e "\t\t\trh [mac]\t\tRefresh hit."
+	echo -e "\t\t\troot\t\t\tLog into the box as root (Humax only)."
+	echo -e "\t\t\tse\t\t\t\tSet entitlements."
+	echo -e "\t\t\tsh [mac]\t\tStaging hit."
+	echo -e "\t\t\tzodiac\t\t\tLog into the box as zodiac (World Box only)."
+#        echo -e "SerialID"
+#        echo -e "MAC Address"
+#        echo -e "IP Address"
+#        echo -e "Register Flag"
+#        echo -e "Uptime"
+#        echo -e "Headend ID"
+#        echo -e "Hub|VCT|LUG ID"
+#        echo -e "Lineup"
+#        echo -e "NodeID|SGID "
+#        echo -e "SDV SGID"
+#        echo -e "DVR Migration"
+#        echo -e "CallerID"
+#        echo -e "Power State"
+#        echo -e "Ready to Watch"
+#        echo -e "Limited Mode"
+#        echo -e "HD Auto Tune"
+#        echo -e "SW Version"
+#        echo -e "Firmware"
+#        echo -e "Box Model\n"
+	tabs 8
+}
+
+function Legacy()
+{
+	[[ `echo 'cmd2k'|nc -4u -w1 ${IP} 65432 2>/dev/null` ]] && return 0 || return 1
+}
+
+function Worldbox()
+{
+        SSHPASS=V6AZPyTE8KbhZ
+        SSHUSER=zodiac
+	sshpass -p${SSHPASS} ssh -n -o StrictHostKeyChecking=no -o ConnectTimeout=2 ${SSHUSER}@${IP} exit 1>/dev/null 2>/dev/null
+	return ${?}
+#	if sshpass -p${SSHPASS} ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 ${SSHUSER}@${IP} exit 1>/dev/null 2>/dev/null
+#	then
+#		return 0
+#	else
+#		return 1
+#	fi
+}
+
+function CheckSTB()
+{
+	Legacy	 && echo Legacy && return 0
+	Worldbox && echo WorldBox && return 0
+}
+
+# log usage
+LOGFILE=/tmp/gsi.log
+[[ ! -f ${LOGFILE} ]] && touch ${LOGFILE} && chmod 666 ${LOGFILE}
+[[ -w ${LOGFILE}  ]] && echo "$(date) : ${USER:-${LOGNAME}} : ${0} ${@}" >> /tmp/gsi.log
+
+while getopts ":abc:DdefIinNoPptThRrsuv" opt
+do
+	case ${opt} in
+		a)	ALL=1
+			DVRCACHE=1
+			DTSCACHE=1
+			DTSNVM=1
+			UPDATE=1
+			PWDVR=1
+			PWSETMGR=1
+			NOINFO=1;;
+		b)	BOOTSTAT=1	&& NOINFO=1;;
+		c)	COMMAND=${OPTARG} && NOINFO=1;;
+		D)	DVRCACHE=1	&& NOINFO=1;;
+		d)	DTSNVM=1	&& DTSCACHE=1 && NOINFO=1;;
+		f)	REGFLAG=1	&& NOINFO=1;;
+		e)	ENTITLEMENTS=1	&& NOINFO=1;;
+		I)	INFO=1;;
+		i)	IBT=1		&& NOINFO=1;;
+		n)	NUKE=1		&& NOINFO=1;;
+		N)	NUKEF=1		&& NOINFO=1;;
+		o)	OBT=1		&& NOINFO=1;;
+		P)	PWSETMGR=1	&& NOINFO=1;;
+		p)	PWDVR=1		&& NOINFO=1;;
+		R)	REBOOT=1	&& NOINFO=1;;
+		r)	CREBOOT=1	&& NOINFO=1;;
+		s)	NL="\n";;
+		t)	NOINFO=1;
+			MOTOTERM=1;;
+		T)	MOTOTERM=1;;
+		h)	mbhelp		&& exit;;
+		u)	UPDATE=1	&& NOINFO=1;;
+		v)	Version;;
+		:)	usage
+			echo "-${OPTARG} requires an argument."
+			exit 1;;
+		\?)	usage
+			echo "Invalid option: -${OPTARG}"
+			exit 1;;
+	esac
+done
+shift $((OPTIND-1))
+
+# Include path to gsi and sshpass in case the system doesn't have sshpass in /usr/bin/
+PATH=${PATH}:~dlyons/bin
+
+for ip in "${@}"
+do
+	######################################################################
+	#  Check to see if IP is valid.
+	#r####################################################################
+	IP=$(echo ${ip}|grep -E -o '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
+	[[ -z ${IP} ]] && echo "${IP}: Invalid IP" && continue
+
+	######################################################################
+	# Check to see if IP is pingable.
+	######################################################################
+	ping -w 2 -c 1 ${IP} > /dev/null || echo -e "Warning: ping ${IP}: Failed\n"
+
+	######################################################################
+	# Check to see if the box can be accessed vi IP
+	# If the box cannot be accessed, but the user specified interactive
+	# mode, then go into interactive mode because running the curls do not
+	# depend on access to box.
+	######################################################################
+	unset Boxtype
+	Boxtype=$(CheckSTB)
+	if [[ -z ${Boxtype} ]]
+	then
+		echo "Error: Unable to connect to ${IP}"
+		[[ ${MOTOTERM} ]] && mterm ${IP}
+		continue
+	fi
+
+	######################################################################
+	# This is the "global" MAC
+	######################################################################
+	unset MAC
+	MAC=$(sendcommand 'pwreg get MacAddress' ${IP}|awk '/MacAddress/ {print $2}')
+
+	######################################################################
+	# This is the "global" ACCTNUM
+	######################################################################
+	unset ACCTNUM
+	ACCTNUM=$(curl -X POST http://spectrum.prd-aws.charter.net/api/pub/loginedge/login/v1/auth/login -d macAddress=${MAC} 2>/dev/null|grep -o '"AccountNumber":"[0-9]*"'|tr -d '"'|awk -F: '{print $NF}')
+
+	######################################################################
+	# Get SW version
+	######################################################################
+	unset sw_p
+	sw_p="`sendcommand 'pwreg get SWVersion' ${IP}|awk '/SWVersion/ {print $2}'`"
+
+	######################################################################
+	# Get power state
+	######################################################################
+	pwr_stat="`sendcommand 'pwreg get power_state' ${IP}|awk '/power_state/ {print $2}'`"
+
+	######################################################################
+	# Process flags based on command-line options.
+	######################################################################
+	[[ ${COMMAND} ]]	&& promptcommand "${COMMAND}"|grep -v ^OK
+	[[ ${DVRCACHE} ]]	&& cldvr_cache
+	[[ ${DTSCACHE} ]]	&& dtscache
+	[[ ${DTSNVM} ]]		&& dtsnvm
+	[[ ${PWDVR} ]]		&& pwdvr
+	[[ ${UPDATE} ]]		&& update
+	[[ ${PWSETMGR} ]]	&& pwsetmgr
+	[[ ${NUKE} ]]		&& nuke
+	[[ ${NUKEF} ]]		&& nukef
+	[[ ${REGFLAG} ]]	&& regflag
+	[[ ${IBT} ]]		&& ibtrans
+	[[ ${OBT} ]]		&& oobtrans
+	[[ ${BOOTSTAT} ]]	&& bootstatus
+	[[ ${ENTITLEMENTS} ]]	&& Entitlements
+	[[ ${INFO} || -z ${NOINFO} ]] && gsi
+        [[ ${MOTOTERM} ]]	&& mterm ${IP}
+	[[ ${CREBOOT} ]] && [[ ${pwr_state} -eq 0 ]] && REBOOT=1
+	[[ ${REBOOT} ]]		&& rebootbox
+done
+exit 0
